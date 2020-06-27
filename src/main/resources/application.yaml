@@ -1,0 +1,16 @@
+server:
+  port: 8080
+#  ssl:
+#    enabled: true
+#    client-auth: need
+#    key-store: classpath:nt-gateway.jks
+#    key-store-password: nt-gateway
+#    #    key-store-password: changeme
+#    key-alias: nt-gateway
+#    key-store-type: JKS
+#    key-store-provider: SUN
+#    trust-store: classpath:nt-gateway.jks
+#    trust-store-password: nt-gateway
+#    #    trust-store-password: changeme
+#    trust-store-type: JKS
+
