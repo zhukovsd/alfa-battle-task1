@@ -4,19 +4,33 @@ import com.zhukovsd.alfabattle.task1.alfabankapi.atm.model.AtmModel;
 import com.zhukovsd.alfabattle.task1.alfabankapi.atm.model.AtmsModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 public class AtmController {
+
+    public static double distance(double lat1, double lat2, double lon1,
+                                  double lon2, double el1, double el2) {
+
+        final int R = 6371; // Radius of the earth
+
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double distance = R * c * 1000; // convert to meters
+
+        double height = el1 - el2;
+
+        distance = Math.pow(distance, 2) + Math.pow(height, 2);
+
+        return Math.sqrt(distance);
+    }
 
     @Autowired
     RestTemplate restTemplate;
@@ -34,6 +48,63 @@ public class AtmController {
                 alfaBankAtmModel.getAddress().getCity(),
                 alfaBankAtmModel.getAddress().getLocation(),
                 alfaBankAtmModel.getServices().getPayments().equals("Y")
+        );
+    }
+
+//    Запрос: GET http://IP:8080/atms/nearest?latitude=string&longitude=string&payments=boolean
+
+    @GetMapping(value = "/atms/nearest")
+    public Model getNearest(
+            @RequestParam Double latitude,
+            @RequestParam Double longitude,
+            @RequestParam(defaultValue = "false") boolean payments
+    ) {
+        Map<String, Double> distancesByDeviceId = new HashMap<>();
+
+        AtmsModel model = this.queryAlfaBankAPI();
+        List<AtmModel> atms = model.getData().getAtms();
+
+        for (AtmModel atm : atms) {
+            if (atm.getCoordinates() == null) {
+                continue;
+            }
+
+            if (atm.getCoordinates().getLatitude() == null) {
+                continue;
+            }
+
+            if (atm.getCoordinates().getLatitude().equals("0")) {
+                continue;
+            }
+
+            if (payments && (atm.getServices().getPayments().equals("N"))) {
+                continue;
+            }
+
+            Double distance =
+                Math.sqrt(
+                    Math.pow((Double.parseDouble(atm.getCoordinates().getLatitude()) - latitude), 2)
+                    + Math.pow((Double.parseDouble(atm.getCoordinates().getLongitude()) - longitude), 2)
+                );
+
+//            Double distance = this.distance(
+//                    Double.parseDouble(atm.getCoordinates().getLatitude()), latitude,
+//                    Double.parseDouble(atm.getCoordinates().getLongitude()), longitude, 0, 0
+//            );
+
+            distancesByDeviceId.put(atm.getDeviceId(), distance);
+        }
+
+        String deviceId = Collections.max(distancesByDeviceId.entrySet(), Comparator.comparingDouble(Map.Entry::getValue)).getKey();
+        AtmModel atm = this.findAtmById(model, deviceId);
+
+        return new Model(
+                atm.getDeviceId(),
+                atm.getCoordinates().getLatitude(),
+                atm.getCoordinates().getLongitude(),
+                atm.getAddress().getCity(),
+                atm.getAddress().getLocation(),
+                atm.getServices().getPayments().equals("Y")
         );
     }
 
